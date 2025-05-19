@@ -5,6 +5,7 @@ import numpy as np
 from gui.input_frame import InputFrame
 from gui.results_frame import ResultsFrame
 from gui.graph_frame import GraphFrame
+from utils.method_register import RootFindingMethodRegistry
 from methods.bisection_method import BisectionMethod
 from methods.chord_method import ChordMethod
 
@@ -21,6 +22,9 @@ class RootFindingApp:
         self.root = root
         self.root.title("Уточнення коренів рівняння")
         self.root.geometry("900x600")
+        
+        # Register methods
+        self._register_methods()
 
         self._configure_style()
 
@@ -48,7 +52,7 @@ class RootFindingApp:
             tab.rowconfigure(0, weight=1)
         
         # frames
-        self.input_frame = InputFrame(self.tab1, self.calculate)
+        self.input_frame = InputFrame(self.tab1, self.calculate, RootFindingMethodRegistry.get_method_choices())
         self.results_frame = ResultsFrame(self.tab2)
         self.graph_frame = GraphFrame(self.tab3)
         
@@ -67,6 +71,15 @@ class RootFindingApp:
         self.results = None
     
         self.root.bind("<Configure>", self._on_window_resize)
+    
+    def _register_methods(self):
+        """Register all root finding methods"""
+        BisectionMethod.display_name = "Метод половинного ділення"
+        ChordMethod.display_name = "Метод хорд"
+        
+        # methods
+        RootFindingMethodRegistry.register(BisectionMethod)
+        RootFindingMethodRegistry.register(ChordMethod)
     
     def _configure_style(self):
         """Configure the application style"""
@@ -106,7 +119,7 @@ class RootFindingApp:
             b = self.input_frame.get_b()
             tolerance = self.input_frame.get_tolerance()
             max_iter = self.input_frame.get_max_iter()
-            method_type = self.input_frame.get_method()
+            method_id = self.input_frame.get_method()
      
             def f(x):
                 eq = equation_str.replace("^", "**")
@@ -123,7 +136,7 @@ class RootFindingApp:
                 }
                 return eval(eq, {"__builtins__": {}}, {**locals_dict, 'x': x})
             
-            # change sigh?
+            # change sign?
             fa = f(a)
             fb = f(b)
             
@@ -134,13 +147,15 @@ class RootFindingApp:
             self.status_var.set("Обчислення...")
             self.root.update_idletasks()
             
-            # create appropriate root finder
-            if method_type == "bisection":
-                finder = BisectionMethod(f, tolerance, max_iter)
-                method_name = "Метод половинного ділення"
-            else:  # chord
-                finder = ChordMethod(f, tolerance, max_iter)
-                method_name = "Метод хорд"
+            # get method
+            method_class = RootFindingMethodRegistry.get_method(method_id)
+            if not method_class:
+                messagebox.showerror("Помилка", f"Метод '{method_id}' не знайдено в реєстрі")
+                return
+            
+            # create instance of method
+            finder = method_class(f, tolerance, max_iter)
+            method_name = method_class.display_name if hasattr(method_class, 'display_name') else method_class.__name__
             
             # calc root
             self.results = finder.find_root(a, b)
@@ -149,10 +164,10 @@ class RootFindingApp:
             self.results['a'] = a
             self.results['b'] = b
             
-            # display
-            self.results_frame.display_results(self.results, method_type)
+            # results
+            self.results_frame.display_results(self.results, method_id)
             self.graph_frame.create_function_plot(f, self.results, a, b)
-            self.graph_frame.create_convergence_plot(self.results, method_type)
+            self.graph_frame.create_convergence_plot(self.results, method_id)
             
             self.status_var.set("Обчислення завершено")
             self.tab_control.select(1)

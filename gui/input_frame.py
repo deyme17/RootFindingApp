@@ -4,16 +4,18 @@ from tkinter import ttk, messagebox
 class InputFrame:
     """Frame for input data with improved UI"""
     
-    def __init__(self, parent, calculate_callback):
+    def __init__(self, parent, calculate_callback, method_choices):
         """
         Initialize the input frame.
         
         Args:
             parent: Parent widget
             calculate_callback: Function to call when calculate button is clicked
+            method_choices: List of tuples (method_id, display_name) for available methods
         """
         self.parent = parent
         self.calculate_callback = calculate_callback
+        self.method_choices = method_choices
     
         self.frame = ttk.Frame(parent)
         self.frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
@@ -36,26 +38,24 @@ class InputFrame:
         method_frame.grid(column=0, row=1, padx=5, pady=5, sticky="ew")
         method_frame.columnconfigure(0, weight=1)
         
-        self.method_var = tk.StringVar(value="bisection")
+        # default to first method if available
+        default_method = self.method_choices[0][0] if self.method_choices else "bisection"
+        self.method_var = tk.StringVar(value=default_method)
         
         method_inner_frame = ttk.Frame(method_frame)
         method_inner_frame.grid(column=0, row=0, padx=10, pady=10, sticky="w")
         
-        self.bisection_radio = ttk.Radiobutton(
-            method_inner_frame, 
-            text="Метод половинного ділення", 
-            variable=self.method_var, 
-            value="bisection"
-        )
-        self.chord_radio = ttk.Radiobutton(
-            method_inner_frame, 
-            text="Метод хорд", 
-            variable=self.method_var, 
-            value="chord"
-        )
-        
-        self.bisection_radio.grid(column=0, row=0, padx=(0, 20), pady=5, sticky="w")
-        self.chord_radio.grid(column=1, row=0, padx=0, pady=5, sticky="w")
+        # radio buttons for method selection
+        self.method_radios = {}
+        for i, (method_id, display_name) in enumerate(self.method_choices):
+            radio = ttk.Radiobutton(
+                method_inner_frame, 
+                text=display_name, 
+                variable=self.method_var, 
+                value=method_id
+            )
+            radio.grid(column=i % 2, row=i // 2, padx=(0 if i % 2 == 0 else 20), pady=5, sticky="w")
+            self.method_radios[method_id] = radio
         
         # equation input
         equation_frame = ttk.LabelFrame(self.frame, text="Рівняння")
@@ -177,12 +177,15 @@ class InputFrame:
     
     def show_help(self):
         """Show help information with improved formatting"""
-        help_text = """
+        # list of methods
+        method_names = [f"• {display_name}" for _, display_name in self.method_choices]
+        method_list = "\n".join(method_names)
+        
+        help_text = f"""
 Знаходження коренів нелінійних рівнянь
 
 Доступні методи:
-• Метод половинного ділення - послідовне ділення інтервалу навпіл для знаходження кореня
-• Метод хорд - використовує апроксимацію функції прямою лінією (хордою)
+{method_list}
 
 Як користуватись:
 1. Введіть рівняння у форматі f(x)
